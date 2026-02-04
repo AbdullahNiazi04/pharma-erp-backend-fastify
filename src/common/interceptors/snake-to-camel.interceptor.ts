@@ -26,6 +26,11 @@ export class SnakeToCamelInterceptor implements NestInterceptor {
       return data;
     }
 
+    if (data && typeof data === 'object' && typeof data.toNumber === 'function') {
+      return data.toNumber();
+    }
+
+
     if (typeof data === 'object') {
       const newObj: any = {};
       for (const key in data) {
