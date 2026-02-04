@@ -1,0 +1,655 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Payment {
+  id                  String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoice_id          String          @db.Uuid
+  payment_date        DateTime        @db.Date
+  paymentMethod       payment_method? @default(Bank_Transfer) @map("payment_method")
+  amount_paid         Decimal         @db.Decimal
+  tax_withheld        Decimal?        @default(0) @db.Decimal
+  advance_adjustments Decimal?        @default(0) @db.Decimal
+  payment_reference   String?
+  status              payment_status? @default(Pending)
+  createdAt           DateTime?       @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt           DateTime?       @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  invoices            invoices        @relation(fields: [invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payments_invoice_id_invoices_id_fk")
+
+  @@map("payments")
+}
+
+model attendance {
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employee_id    String             @db.Uuid
+  date           DateTime           @db.Date
+  check_in       DateTime?          @db.Timestamp(6)
+  check_out      DateTime?          @db.Timestamp(6)
+  status         attendance_status? @default(Present)
+  overtime_hours Decimal?           @default(0) @db.Decimal
+  remarks        String?
+  created_at     DateTime?          @default(now()) @db.Timestamp(6)
+  employees      employees          @relation(fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "attendance_employee_id_employees_id_fk")
+}
+
+model cold_chain_logs {
+  id              String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  warehouse_id    String     @db.Uuid
+  temperature     Decimal?   @db.Decimal
+  humidity        Decimal?   @db.Decimal
+  recorded_at     DateTime?  @default(now()) @db.Timestamp(6)
+  alert_triggered Boolean?   @default(false)
+  warehouses      warehouses @relation(fields: [warehouse_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "cold_chain_logs_warehouse_id_warehouses_id_fk")
+}
+
+model customers {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String
+  type             customer_type
+  contact_person   String?
+  phone            String?
+  email            String?
+  billing_address  String?
+  shipping_address String?
+  tax_id           String?
+  status           String?        @default("Active")
+  created_at       DateTime?      @default(now()) @db.Timestamp(6)
+  updated_at       DateTime?      @default(now()) @db.Timestamp(6)
+  sales_orders     sales_orders[]
+}
+
+model departments {
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String      @unique(map: "departments_name_unique")
+  manager_id String?     @db.Uuid
+  created_at DateTime?   @default(now()) @db.Timestamp(6)
+  updated_at DateTime?   @default(now()) @db.Timestamp(6)
+  employees  employees[]
+}
+
+model designations {
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title      String
+  level      String?
+  created_at DateTime?   @default(now()) @db.Timestamp(6)
+  updated_at DateTime?   @default(now()) @db.Timestamp(6)
+  employees  employees[]
+}
+
+model dispatches {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sales_order_id  String           @db.Uuid
+  warehouse_id    String?          @db.Uuid
+  dispatch_date   DateTime?        @default(now()) @db.Date
+  transporter     String?
+  delivery_status delivery_status? @default(Pending)
+  created_at      DateTime?        @default(now()) @db.Timestamp(6)
+  sales_orders    sales_orders     @relation(fields: [sales_order_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dispatches_sales_order_id_sales_orders_id_fk")
+  warehouses      warehouses?      @relation(fields: [warehouse_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "dispatches_warehouse_id_warehouses_id_fk")
+}
+
+model employees {
+  id                                                   String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employee_code                                        String           @unique(map: "employees_employee_code_unique")
+  full_name                                            String
+  cnic_passport                                        String           @unique(map: "employees_cnic_passport_unique")
+  date_of_birth                                        DateTime         @db.Date
+  gender                                               gender?
+  department_id                                        String           @db.Uuid
+  designation_id                                       String           @db.Uuid
+  joining_date                                         DateTime         @db.Date
+  employment_type                                      employment_type? @default(Permanent)
+  status                                               employee_status? @default(Active)
+  basic_salary                                         Decimal          @db.Decimal
+  bank_account                                         String?
+  social_security_no                                   String?
+  created_at                                           DateTime?        @default(now()) @db.Timestamp(6)
+  updated_at                                           DateTime?        @default(now()) @db.Timestamp(6)
+  attendance                                           attendance[]
+  departments                                          departments      @relation(fields: [department_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "employees_department_id_departments_id_fk")
+  designations                                         designations     @relation(fields: [designation_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "employees_designation_id_designations_id_fk")
+  leave_requests_leave_requests_approved_byToemployees leave_requests[] @relation("leave_requests_approved_byToemployees")
+  leave_requests_leave_requests_employee_idToemployees leave_requests[] @relation("leave_requests_employee_idToemployees")
+  pay_slips                                            pay_slips[]
+}
+
+model finished_goods_batches {
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  item_id              String               @db.Uuid
+  batch_number         String
+  mfg_date             DateTime             @db.Date
+  expiry_date          DateTime             @db.Date
+  quantity_produced    Int
+  quantity_available   Int
+  qc_status            qc_release_status?   @default(Hold)
+  warehouse_id         String?              @db.Uuid
+  created_at           DateTime?            @default(now()) @db.Timestamp(6)
+  updated_at           DateTime?            @default(now()) @db.Timestamp(6)
+  finished_goods_items finished_goods_items @relation(fields: [item_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "finished_goods_batches_item_id_finished_goods_items_id_fk")
+  warehouses           warehouses?          @relation(fields: [warehouse_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "finished_goods_batches_warehouse_id_warehouses_id_fk")
+}
+
+model finished_goods_items {
+  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  item_code              String                   @unique(map: "finished_goods_items_item_code_unique")
+  item_name              String
+  dosage_form            String?
+  strength               String?
+  pack_size              String?
+  shelf_life             Int?
+  mrp                    Decimal?                 @default(0) @db.Decimal
+  status                 fg_status?               @default(Active)
+  created_at             DateTime?                @default(now()) @db.Timestamp(6)
+  updated_at             DateTime?                @default(now()) @db.Timestamp(6)
+  finished_goods_batches finished_goods_batches[]
+  sales_order_items      sales_order_items[]
+}
+
+model goods_receipt_items {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  grn_id              String              @db.Uuid
+  item_code           String?
+  item_name           String?
+  ordered_qty         Int
+  received_qty        Int
+  rejected_qty        Int?                @default(0)
+  batch_number        String?
+  mfg_date            DateTime?           @db.Date
+  expiry_date         DateTime?           @db.Date
+  storage_condition   String?
+  goods_receipt_notes goods_receipt_notes @relation(fields: [grn_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "goods_receipt_items_grn_id_goods_receipt_notes_id_fk")
+}
+
+model goods_receipt_notes {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  grn_number          String                @unique(map: "goods_receipt_notes_grn_number_unique")
+  grn_date            DateTime              @db.Date
+  po_id               String?               @db.Uuid
+  warehouse_location  String?
+  received_by         String?
+  qc_required         Boolean?              @default(false)
+  qc_status           qc_status?            @default(Pending)
+  qc_remarks          String?
+  stock_posted        Boolean?              @default(false)
+  inventory_location  String?
+  status              grn_status?           @default(Draft)
+  created_at          DateTime?             @default(now()) @db.Timestamp(6)
+  updated_at          DateTime?             @default(now()) @db.Timestamp(6)
+  urgency_status      qc_urgency?           @default(Normal)
+  qc_intimation_date  DateTime?             @db.Timestamp(6)
+  attachments         String[]
+  import_documents    String[]
+  goods_receipt_items goods_receipt_items[]
+  purchase_orders     purchase_orders?      @relation(fields: [po_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "goods_receipt_notes_po_id_purchase_orders_id_fk")
+  invoices            invoices[]
+}
+
+model invoices {
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  po_id               String?              @db.Uuid
+  amount              Decimal              @db.Decimal
+  status              invoice_status?      @default(Pending)
+  due_date            DateTime             @db.Date
+  created_at          DateTime?            @default(now()) @db.Timestamp(6)
+  invoice_number      String               @unique(map: "invoices_invoice_number_unique")
+  invoice_date        DateTime             @db.Date
+  vendor_id           String               @db.Uuid
+  grn_id              String?              @db.Uuid
+  updated_at          DateTime?            @default(now()) @db.Timestamp(6)
+  goods_receipt_notes goods_receipt_notes? @relation(fields: [grn_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoices_grn_id_goods_receipt_notes_id_fk")
+  purchase_orders     purchase_orders?     @relation(fields: [po_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoices_po_id_purchase_orders_id_fk")
+  vendors             vendors              @relation(fields: [vendor_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoices_vendor_id_vendors_id_fk")
+  payments            Payment[]
+}
+
+model leave_requests {
+  id                                              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employee_id                                     String        @db.Uuid
+  leave_type                                      leave_type
+  start_date                                      DateTime      @db.Date
+  end_date                                        DateTime      @db.Date
+  total_days                                      Int
+  reason                                          String?
+  status                                          leave_status? @default(Pending)
+  approved_by                                     String?       @db.Uuid
+  created_at                                      DateTime?     @default(now()) @db.Timestamp(6)
+  updated_at                                      DateTime?     @default(now()) @db.Timestamp(6)
+  employees_leave_requests_approved_byToemployees employees?    @relation("leave_requests_approved_byToemployees", fields: [approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "leave_requests_approved_by_employees_id_fk")
+  employees_leave_requests_employee_idToemployees employees     @relation("leave_requests_employee_idToemployees", fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "leave_requests_employee_id_employees_id_fk")
+}
+
+model pay_slips {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  payroll_id        String          @db.Uuid
+  employee_id       String          @db.Uuid
+  basic_salary_paid Decimal         @db.Decimal
+  allowances        Decimal?        @default(0) @db.Decimal
+  overtime_pay      Decimal?        @default(0) @db.Decimal
+  tax_deduction     Decimal?        @default(0) @db.Decimal
+  unpaid_leave_ded  Decimal?        @default(0) @db.Decimal
+  other_deductions  Decimal?        @default(0) @db.Decimal
+  net_salary        Decimal         @db.Decimal
+  created_at        DateTime?       @default(now()) @db.Timestamp(6)
+  employees         employees       @relation(fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "pay_slips_employee_id_employees_id_fk")
+  payroll_periods   payroll_periods @relation(fields: [payroll_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "pay_slips_payroll_id_payroll_periods_id_fk")
+}
+
+model payroll_periods {
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  month              Int
+  year               Int
+  total_disbursement Decimal?        @default(0) @db.Decimal
+  status             payroll_status? @default(Open)
+  created_at         DateTime?       @default(now()) @db.Timestamp(6)
+  updated_at         DateTime?       @default(now()) @db.Timestamp(6)
+  pay_slips          pay_slips[]
+}
+
+model procurement_options {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type       String
+  label      String
+  value      String
+  is_system  Boolean?  @default(false)
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model purchase_order_items {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  po_id             String          @db.Uuid
+  item_code         String?
+  description       String?
+  quantity          Int
+  unit_price        Decimal         @db.Decimal
+  discount_percent  Decimal?        @default(0) @db.Decimal
+  tax_percent       Decimal?        @default(0) @db.Decimal
+  net_amount        Decimal?        @db.Decimal
+  total_amount      Decimal?        @db.Decimal
+  is_batch_required Boolean?        @default(false)
+  purchase_orders   purchase_orders @relation(fields: [po_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "purchase_order_items_po_id_purchase_orders_id_fk")
+}
+
+model purchase_orders {
+  id                    String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  po_number             String                 @unique(map: "purchase_orders_po_number_unique")
+  vendor_id             String                 @db.Uuid
+  total_amount          Decimal?               @default(0) @db.Decimal
+  currency              String?                @default("PKR")
+  status                po_status?             @default(Draft)
+  created_at            DateTime?              @default(now()) @db.Timestamp(6)
+  po_date               DateTime               @db.Date
+  reference_pr_id       String?                @db.Uuid
+  payment_terms         String?
+  incoterms             String?
+  delivery_schedule     DateTime?              @db.Date
+  delivery_location     String?
+  freight_charges       Decimal?               @default(0) @db.Decimal
+  insurance_charges     Decimal?               @default(0) @db.Decimal
+  subtotal              Decimal?               @default(0) @db.Decimal
+  tax_amount            Decimal?               @default(0) @db.Decimal
+  updated_at            DateTime?              @default(now()) @db.Timestamp(6)
+  terms_and_conditions  String?
+  tax_category          tax_category?          @default(Exclusive)
+  goods_receipt_notes   goods_receipt_notes[]
+  invoices              invoices[]
+  purchase_order_items  purchase_order_items[]
+  purchase_requisitions purchase_requisitions? @relation(fields: [reference_pr_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "purchase_orders_reference_pr_id_purchase_requisitions_id_fk")
+  vendors               vendors                @relation(fields: [vendor_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "purchase_orders_vendor_id_vendors_id_fk")
+}
+
+model purchase_requisition_items {
+  id                    String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pr_id                 String                @db.Uuid
+  item_code             String?
+  item_name             String
+  category              String?
+  uom                   String?
+  quantity              Int
+  estimated_unit_cost   Decimal?              @db.Decimal
+  total_cost            Decimal?              @db.Decimal
+  preferred_vendor_id   String?               @db.Uuid
+  specification         String?
+  purchase_requisitions purchase_requisitions @relation(fields: [pr_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "purchase_requisition_items_pr_id_purchase_requisitions_id_fk")
+  vendors               vendors?              @relation(fields: [preferred_vendor_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "purchase_requisition_items_preferred_vendor_id_vendors_id_fk")
+}
+
+model purchase_requisitions {
+  id                         String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  req_number                 String                       @unique(map: "purchase_requisitions_req_number_unique")
+  status                     pr_status?                   @default(Draft)
+  created_at                 DateTime?                    @default(now()) @db.Timestamp(6)
+  requisition_date           DateTime                     @db.Date
+  requested_by               String
+  department                 String?
+  cost_center                String?
+  priority                   pr_priority?                 @default(Normal)
+  expected_delivery_date     DateTime?                    @db.Date
+  budget_reference           String?
+  total_estimated_cost       Decimal?                     @db.Decimal
+  updated_at                 DateTime?                    @default(now()) @db.Timestamp(6)
+  purchase_orders            purchase_orders[]
+  purchase_requisition_items purchase_requisition_items[]
+}
+
+model raw_material_batches {
+  id                     String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  inventory_id           String                 @db.Uuid
+  batch_number           String
+  quantity_available     Int
+  expiry_date            DateTime?              @db.Date
+  qc_status              batch_status?          @default(Quarantine)
+  warehouse_location     String?
+  created_at             DateTime?              @default(now()) @db.Timestamp(6)
+  updated_at             DateTime?              @default(now()) @db.Timestamp(6)
+  raw_material_inventory raw_material_inventory @relation(fields: [inventory_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "raw_material_batches_inventory_id_raw_material_inventory_id_fk")
+}
+
+model raw_material_inventory {
+  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  material_id          String                 @db.Uuid
+  storage_condition    String?
+  reorder_level        Int?                   @default(0)
+  safety_stock         Int?                   @default(0)
+  status               rm_status?             @default(Active)
+  created_at           DateTime?              @default(now()) @db.Timestamp(6)
+  updated_at           DateTime?              @default(now()) @db.Timestamp(6)
+  raw_material_batches raw_material_batches[]
+  raw_materials        raw_materials          @relation(fields: [material_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "raw_material_inventory_material_id_raw_materials_id_fk")
+}
+
+model raw_materials {
+  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                   String                   @unique(map: "raw_materials_name_unique")
+  code                   String                   @unique(map: "raw_materials_code_unique")
+  description            String?
+  type                   raw_material_type
+  unit_of_measure        String
+  created_at             DateTime?                @default(now()) @db.Timestamp(6)
+  updated_at             DateTime?                @default(now()) @db.Timestamp(6)
+  raw_material_inventory raw_material_inventory[]
+}
+
+model sales_order_items {
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sales_order_id       String               @db.Uuid
+  item_id              String               @db.Uuid
+  batch_number         String?
+  quantity             Int
+  unit_price           Decimal              @db.Decimal
+  discount             Decimal?             @default(0) @db.Decimal
+  tax                  Decimal?             @default(0) @db.Decimal
+  net_amount           Decimal              @db.Decimal
+  finished_goods_items finished_goods_items @relation(fields: [item_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_items_item_id_finished_goods_items_id_fk")
+  sales_orders         sales_orders         @relation(fields: [sales_order_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_order_items_sales_order_id_sales_orders_id_fk")
+}
+
+model sales_orders {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customer_id       String              @db.Uuid
+  order_date        DateTime            @db.Date
+  delivery_date     DateTime?           @db.Date
+  status            order_status?       @default(Draft)
+  total_amount      Decimal?            @default(0) @db.Decimal
+  created_by        String?
+  created_at        DateTime?           @default(now()) @db.Timestamp(6)
+  updated_at        DateTime?           @default(now()) @db.Timestamp(6)
+  dispatches        dispatches[]
+  sales_order_items sales_order_items[]
+  customers         customers           @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "sales_orders_customer_id_customers_id_fk")
+}
+
+model trash {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  original_table String
+  original_id    String    @db.Uuid
+  data           Json
+  deleted_at     DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model vendors {
+  id                         String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  legal_name                 String
+  vendor_type                String?
+  business_category          String?
+  registration_number        String?
+  ntn_vat_gst                String?
+  country                    String?
+  city                       String?
+  address                    String?
+  status                     vendor_status?               @default(Active)
+  contact_person             String?
+  contact_number             String?
+  email                      String?
+  website                    String?
+  is_gmp_certified           Boolean?                     @default(false)
+  is_blacklisted             Boolean?                     @default(false)
+  regulatory_license         String?
+  license_expiry_date        DateTime?                    @db.Date
+  quality_rating             Int?
+  audit_status               audit_status?                @default(Pending)
+  risk_category              String?                      @default("Low")
+  bank_name                  String?
+  account_title              String?
+  account_number             String?
+  currency                   String?                      @default("PKR")
+  payment_terms              String?
+  credit_limit               Decimal?                     @db.Decimal
+  tax_withholding_percent    Decimal?                     @db.Decimal
+  created_at                 DateTime?                    @default(now()) @db.Timestamp(6)
+  updated_at                 DateTime?                    @default(now()) @db.Timestamp(6)
+  invoices                   invoices[]
+  purchase_orders            purchase_orders[]
+  purchase_requisition_items purchase_requisition_items[]
+}
+
+model warehouses {
+  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                   String                   @unique(map: "warehouses_name_unique")
+  type                   warehouse_type?          @default(Normal)
+  location               String?
+  temperature_range      String?
+  humidity_range         String?
+  status                 fg_status?               @default(Active)
+  created_at             DateTime?                @default(now()) @db.Timestamp(6)
+  updated_at             DateTime?                @default(now()) @db.Timestamp(6)
+  cold_chain_logs        cold_chain_logs[]
+  dispatches             dispatches[]
+  finished_goods_batches finished_goods_batches[]
+}
+
+enum attendance_status {
+  Present
+  Absent
+  Late
+  Half_Day @map("Half-Day")
+}
+
+enum audit_status {
+  Pending
+  Cleared
+  Failed
+}
+
+enum batch_status {
+  Quarantine
+  Approved
+  Rejected
+}
+
+enum customer_type {
+  Distributor
+  Hospital
+  Pharmacy
+}
+
+enum delivery_status {
+  Pending
+  In_Transit @map("In-Transit")
+  Delivered
+}
+
+enum employee_status {
+  Active
+  On_Leave   @map("On Leave")
+  Terminated
+  Resigned
+}
+
+enum employment_type {
+  Permanent
+  Contract
+  Daily_Wager @map("Daily Wager")
+}
+
+enum fg_status {
+  Active
+  Inactive
+}
+
+enum gender {
+  Male
+  Female
+  Other
+}
+
+enum grn_status {
+  Draft
+  Submitted
+  Approved
+}
+
+enum invoice_status {
+  Pending
+  Paid
+  Overdue
+  Cancelled
+}
+
+enum leave_status {
+  Pending
+  Approved
+  Rejected
+}
+
+enum leave_type {
+  Sick
+  Casual
+  Annual
+  Maternity
+}
+
+enum order_status {
+  Draft
+  Confirmed
+  Dispatched
+  Cancelled
+}
+
+enum payment_method {
+  Bank_Transfer @map("Bank Transfer")
+  Cheque
+  Cash
+  Credit_Card   @map("Credit Card")
+}
+
+enum payment_status {
+  Pending
+  Completed
+  Failed
+}
+
+enum payment_terms {
+  Net_30   @map("Net-30")
+  Net_60   @map("Net-60")
+  Advanced
+}
+
+enum payroll_status {
+  Open
+  Processed
+  Paid
+}
+
+enum po_status {
+  Draft
+  Issued
+  Partial
+  Closed
+  Cancelled
+}
+
+enum pr_priority {
+  Normal
+  Urgent
+}
+
+enum pr_status {
+  Draft
+  Pending_Approval @map("Pending Approval")
+  Approved
+  Rejected
+  Converted
+}
+
+enum qc_release_status {
+  Released
+  Hold
+  Rejected
+}
+
+enum qc_status {
+  Pending
+  Passed
+  Failed
+  Skipped
+}
+
+enum qc_urgency {
+  Normal
+  Urgent
+  ASAP
+}
+
+enum raw_material_type {
+  API
+  Excipient
+  Packaging
+}
+
+enum risk_category {
+  Low
+  Medium
+  High
+}
+
+enum rm_status {
+  Active
+  Inactive
+}
+
+enum tax_category {
+  Inclusive
+  Exclusive
+}
+
+enum vendor_status {
+  Active
+  Inactive
+  Blacklisted
+}
+
+enum vendor_type {
+  Raw_Material @map("Raw Material")
+  Packaging
+  Services
+  Equipment
+}
+
+enum warehouse_type {
+  Normal
+  Cold_Chain @map("Cold Chain")
+}
