@@ -2,7 +2,9 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateFinishedGoodDto } from './dto/create-finished-good.dto';
 import { UpdateFinishedGoodDto } from './dto/update-finished-good.dto';
-import { fg_status } from '@prisma/client';
+import { fg_status, qc_release_status } from '@prisma/client';
+import { CreateFinishedGoodBatchDto } from './dto/create-finished-good-batch.dto';
+import { UpdateFinishedGoodBatchDto } from './dto/update-finished-good-batch.dto';
 
 @Injectable()
 export class FinishedGoodsService {
@@ -56,9 +58,60 @@ export class FinishedGoodsService {
   async remove(id: string) {
     const item = await this.findOne(id);
     await this.prisma.trash.create({
-      data: { original_table: 'finished_goods_items', original_id: id, data: item },
+      data: { original_table: 'finished_goods_items', original_id: id, data: item as any },
     });
     await this.prisma.finished_goods_items.delete({ where: { id } });
     return { message: 'Finished Good moved to trash', id };
+  }
+
+  // --- Batch Management ---
+
+  async addBatch(createDto: CreateFinishedGoodBatchDto) {
+    return this.prisma.finished_goods_batches.create({
+      data: {
+        item_id: createDto.itemId,
+        batch_number: createDto.batchNumber,
+        mfg_date: new Date(createDto.mfgDate),
+        expiry_date: new Date(createDto.expiryDate),
+        quantity_produced: createDto.quantityProduced,
+        quantity_available: createDto.quantityAvailable,
+        qc_status: createDto.qcStatus as qc_release_status,
+        warehouse_id: createDto.warehouseId,
+      },
+    });
+  }
+
+  async findAllBatches() {
+    return this.prisma.finished_goods_batches.findMany({
+      include: { 
+        finished_goods_items: true,
+        warehouses: true
+      },
+      orderBy: { created_at: 'desc' },
+    });
+  }
+
+  async findBatchesByItem(itemId: string) {
+    return this.prisma.finished_goods_batches.findMany({
+      where: { item_id: itemId },
+      include: { warehouses: true },
+      orderBy: { created_at: 'desc' },
+    });
+  }
+
+  async updateBatch(id: string, updateDto: UpdateFinishedGoodBatchDto) {
+    return this.prisma.finished_goods_batches.update({
+      where: { id },
+      data: {
+        quantity_available: updateDto.quantityAvailable,
+        qc_status: updateDto.qcStatus as qc_release_status,
+        warehouse_id: updateDto.warehouseId,
+        updated_at: new Date(),
+      },
+    });
+  }
+
+  async removeBatch(id: string) {
+    return this.prisma.finished_goods_batches.delete({ where: { id } });
   }
 }
