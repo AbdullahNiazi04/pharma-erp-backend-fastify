@@ -3,6 +3,7 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
+import { SnakeToCamelInterceptor } from './common/interceptors/snake-to-camel.interceptor';
 
 async function bootstrap() {
   // Create NestJS app with Fastify adapter
@@ -39,6 +40,9 @@ async function bootstrap() {
     transform: true,
     forbidNonWhitelisted: true,
   }));
+
+  // Global Interceptor for Snake Case to Camel Case
+  app.useGlobalInterceptors(new SnakeToCamelInterceptor());
 
   // Swagger API documentation
   const config = new DocumentBuilder()
