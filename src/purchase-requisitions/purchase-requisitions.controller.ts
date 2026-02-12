@@ -24,6 +24,13 @@ export class PurchaseRequisitionsController {
     return this.prService.findAll();
   }
 
+  @Get('available')
+  @ApiOperation({ summary: 'Get PRs available for PO creation (Approved & not linked to any PO)' })
+  @ApiResponse({ status: 200, description: 'List of available PRs' })
+  findAvailableForPO() {
+    return this.prService.findAvailableForPO();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a purchase requisition by ID' })
   @ApiResponse({ status: 200, description: 'PR found with items' })

@@ -10,10 +10,31 @@ export class GoodsReceiptNotesService {
 
   async create(createDto: CreateGoodsReceiptNoteDto) {
     return await this.prisma.$transaction(async (tx) => {
+      let grnNumber = createDto.grnNumber;
+
+      // Auto-generate GRN number if not provided
+      if (!grnNumber) {
+        const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        const lastGrn = await tx.goods_receipt_notes.findFirst({
+          orderBy: { created_at: 'desc' },
+          select: { grn_number: true },
+        });
+
+        let nextCount = 1;
+        if (lastGrn?.grn_number) {
+          const parts = lastGrn.grn_number.split('-');
+          if (parts.length === 3) {
+            const lastCount = parseInt(parts[2], 10);
+            if (!isNaN(lastCount)) nextCount = lastCount + 1;
+          }
+        }
+        grnNumber = `GRN-${dateStr}-${nextCount.toString().padStart(4, '0')}`;
+      }
+
       // Insert Header
       const grn = await tx.goods_receipt_notes.create({
         data: {
-          grn_number: createDto.grnNumber,
+          grn_number: grnNumber,
           grn_date: new Date(createDto.grnDate),
           po_id: createDto.poId,
           warehouse_location: createDto.warehouseLocation,
@@ -66,17 +87,64 @@ export class GoodsReceiptNotesService {
 
   async update(id: string, updateDto: UpdateGoodsReceiptNoteDto) {
     await this.findOne(id);
+    
+    return await this.prisma.$transaction(async (tx) => {
+      // Update header fields
+      const grn = await tx.goods_receipt_notes.update({
+        where: { id },
+        data: {
+          grn_date: updateDto.grnDate ? new Date(updateDto.grnDate) : undefined,
+          warehouse_location: updateDto.warehouseLocation,
+          received_by: updateDto.receivedBy,
+          qc_required: updateDto.qcRequired,
+          urgency_status: updateDto.urgencyStatus as qc_urgency,
+          qc_remarks: updateDto.qcRemarks,
+          updated_at: new Date(),
+        },
+      });
+
+      // If items provided, replace them (delete old + insert new)
+      if (updateDto.items && updateDto.items.length > 0) {
+        // Delete existing items
+        await tx.goods_receipt_items.deleteMany({ where: { grn_id: id } });
+        
+        // Insert new items
+        await tx.goods_receipt_items.createMany({
+          data: updateDto.items.map(item => ({
+            grn_id: id,
+            item_code: item.itemCode,
+            item_name: item.itemName,
+            ordered_qty: item.orderedQty,
+            received_qty: item.receivedQty,
+            rejected_qty: item.rejectedQty || 0,
+            batch_number: item.batchNumber,
+            mfg_date: item.mfgDate ? new Date(item.mfgDate) : null,
+            expiry_date: item.expiryDate ? new Date(item.expiryDate) : null,
+            storage_condition: item.storageCondition,
+          })),
+        });
+      }
+
+      // Return updated GRN with items
+      const items = await tx.goods_receipt_items.findMany({ where: { grn_id: id } });
+      return { ...grn, items };
+    });
+  }
+
+  /**
+   * Update GRN status and/or QC status
+   * Used for workflow transitions (e.g., Draft -> Approved, QC Pending -> Passed)
+   */
+  async updateStatus(id: string, statusUpdate: { status?: string; qcStatus?: string }) {
+    await this.findOne(id);
+    
+    const data: any = { updated_at: new Date() };
+    if (statusUpdate.status) data.status = statusUpdate.status;
+    if (statusUpdate.qcStatus) data.qc_status = statusUpdate.qcStatus;
+
     return this.prisma.goods_receipt_notes.update({
       where: { id },
-      data: {
-        grn_date: updateDto.grnDate ? new Date(updateDto.grnDate) : undefined,
-        warehouse_location: updateDto.warehouseLocation,
-        received_by: updateDto.receivedBy,
-        qc_required: updateDto.qcRequired,
-        urgency_status: updateDto.urgencyStatus as qc_urgency,
-        qc_remarks: updateDto.qcRemarks,
-        updated_at: new Date(),
-      },
+      data,
     });
   }
 

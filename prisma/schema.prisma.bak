@@ -222,7 +222,7 @@ model rmqc_inspections {
   updated_at           DateTime?             @default(now()) @db.Timestamp(6)
   completed_at         DateTime?
   goods_receipt_notes  goods_receipt_notes   @relation(fields: [grn_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "rmqc_inspections_grn_id_goods_receipt_notes_id_fk")
-  raw_material_batches raw_material_batches? @relation(fields: [raw_material_id], references: [id], onUpdate: NoAction, map: "rmqc_inspections_raw_material_id_raw_material_batches_id_fk")
+  raw_material_batches raw_material_batches? @relation(fields: [raw_material_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "rmqc_inspections_raw_material_id_raw_material_batches_id_fk")
 }
 
 model leave_requests {
@@ -282,6 +282,7 @@ model purchase_order_items {
   po_id             String          @db.Uuid
   item_code         String?
   description       String?
+  category          String?
   quantity          Int
   unit_price        Decimal         @db.Decimal
   discount_percent  Decimal?        @default(0) @db.Decimal
@@ -289,7 +290,6 @@ model purchase_order_items {
   net_amount        Decimal?        @db.Decimal
   total_amount      Decimal?        @db.Decimal
   is_batch_required Boolean?        @default(false)
-  category          String?
   purchase_orders   purchase_orders @relation(fields: [po_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "purchase_order_items_po_id_purchase_orders_id_fk")
 }
 
@@ -315,11 +315,11 @@ model purchase_orders {
   terms_and_conditions  String?
   tax_category          tax_category?          @default(Exclusive)
   goods_receipt_notes   goods_receipt_notes[]
-  import_orders         import_orders[]
   invoices              invoices[]
   purchase_order_items  purchase_order_items[]
   purchase_requisitions purchase_requisitions? @relation(fields: [reference_pr_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "purchase_orders_reference_pr_id_purchase_requisitions_id_fk")
   vendors               vendors                @relation(fields: [vendor_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "purchase_orders_vendor_id_vendors_id_fk")
+  import_orders         import_orders[]
 }
 
 model purchase_requisition_items {
@@ -463,10 +463,10 @@ model vendors {
   tax_withholding_percent    Decimal?                     @db.Decimal
   created_at                 DateTime?                    @default(now()) @db.Timestamp(6)
   updated_at                 DateTime?                    @default(now()) @db.Timestamp(6)
-  import_orders              import_orders[]
   invoices                   invoices[]
   purchase_orders            purchase_orders[]
   purchase_requisition_items purchase_requisition_items[]
+  import_orders              import_orders[]
   vendor_tags                vendor_tags[]
 }
 
@@ -492,39 +492,6 @@ model warehouses {
   cold_chain_logs        cold_chain_logs[]
   dispatches             dispatches[]
   finished_goods_batches finished_goods_batches[]
-}
-
-model import_orders {
-  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  import_number    String             @unique
-  vendor_id        String             @db.Uuid
-  reference_po_id  String?            @db.Uuid
-  currency         String             @default("USD")
-  exchange_rate    Decimal            @db.Decimal
-  amount_usd       Decimal            @db.Decimal
-  amount_pkr       Decimal            @db.Decimal
-  bill_of_lading   String?
-  lc_number        String?
-  customs_ref      String?
-  port_of_entry    String?
-  status           import_status      @default(Pending)
-  eta              DateTime?          @db.Date
-  arrival_date     DateTime?          @db.Date
-  clearance_date   DateTime?          @db.Date
-  created_at       DateTime?          @default(now()) @db.Timestamp(6)
-  updated_at       DateTime?          @default(now()) @db.Timestamp(6)
-  import_documents import_documents[]
-  purchase_orders  purchase_orders?   @relation(fields: [reference_po_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  vendors          vendors            @relation(fields: [vendor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-}
-
-model import_documents {
-  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  import_id     String        @db.Uuid
-  document_type String
-  document_url  String
-  uploaded_at   DateTime?     @default(now()) @db.Timestamp(6)
-  import_orders import_orders @relation(fields: [import_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
 enum attendance_status {
@@ -723,9 +690,48 @@ enum warehouse_type {
 
 enum import_status {
   Pending
-  In_Transit        @map("In Transit")
-  At_Port           @map("At Port")
+  In_Transit    @map("In Transit")
+  At_Port       @map("At Port")
   Customs_Clearance @map("Customs Clearance")
   Cleared
   Received
+}
+
+model import_orders {
+  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  import_number     String         @unique
+  vendor_id         String         @db.Uuid
+  reference_po_id   String?        @db.Uuid
+  
+  currency          String         @default("USD")
+  exchange_rate     Decimal        @db.Decimal
+  amount_usd        Decimal        @db.Decimal
+  amount_pkr        Decimal        @db.Decimal
+  
+  bill_of_lading    String?
+  lc_number         String?
+  customs_ref       String?
+  port_of_entry     String?
+  
+  status            import_status  @default(Pending)
+  eta               DateTime?      @db.Date
+  arrival_date      DateTime?      @db.Date
+  clearance_date    DateTime?      @db.Date
+  
+  created_at        DateTime?      @default(now()) @db.Timestamp(6)
+  updated_at        DateTime?      @default(now()) @db.Timestamp(6)
+  
+  vendors           vendors        @relation(fields: [vendor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  purchase_orders   purchase_orders? @relation(fields: [reference_po_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  import_documents  import_documents[]
+}
+
+model import_documents {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  import_id       String    @db.Uuid
+  document_type   String
+  document_url    String
+  uploaded_at     DateTime? @default(now()) @db.Timestamp(6)
+  
+  import_orders   import_orders @relation(fields: [import_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }

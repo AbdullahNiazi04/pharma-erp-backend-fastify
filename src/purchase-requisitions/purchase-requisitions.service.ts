@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePurchaseRequisitionDto } from './dto/create-purchase-requisition.dto';
 import { UpdatePurchaseRequisitionDto } from './dto/update-purchase-requisition.dto';
-import { pr_priority } from '@prisma/client';
+import { pr_priority, pr_status } from '@prisma/client';
 
 @Injectable()
 export class PurchaseRequisitionsService {
@@ -68,6 +68,21 @@ export class PurchaseRequisitionsService {
 
   async findAll() {
     return this.prisma.purchase_requisitions.findMany({
+      orderBy: { created_at: 'desc' },
+    });
+  }
+
+  /**
+   * Get PRs that are available for linking to a Purchase Order.
+   * Includes Draft, Submitted, and Approved PRs not yet linked to any PO.
+   */
+  async findAvailableForPO() {
+    return this.prisma.purchase_requisitions.findMany({
+      where: {
+        status: { in: [pr_status.Draft, pr_status.Pending_Approval, pr_status.Approved] },
+        // Not linked to any PO (no PO references this PR)
+        purchase_orders: { none: {} }
+      },
       orderBy: { created_at: 'desc' },
     });
   }

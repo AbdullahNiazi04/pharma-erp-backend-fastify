@@ -28,6 +28,18 @@ export class PurchaseOrdersController {
     return this.poService.getVendorHistory(vendorId);
   }
 
+  @Get('available')
+  @ApiOperation({ summary: 'Get POs available for GRN creation (Issued or Partial status)' })
+  findAvailableForGRN() {
+    return this.poService.findAvailableForGRN();
+  }
+
+  @Get('completed')
+  @ApiOperation({ summary: 'Get completed/closed POs (historical view)' })
+  findCompleted() {
+    return this.poService.findCompleted();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a purchase order by ID' })
   findOne(@Param('id') id: string) {

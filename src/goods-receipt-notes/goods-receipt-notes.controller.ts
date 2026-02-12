@@ -35,6 +35,12 @@ export class GoodsReceiptNotesController {
     return this.grnService.update(id, updateDto);
   }
 
+  @Patch(':id/status')
+  @ApiOperation({ summary: 'Update GRN status and/or QC status' })
+  updateStatus(@Param('id') id: string, @Body() body: { status?: string; qcStatus?: string }) {
+    return this.grnService.updateStatus(id, body);
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a goods receipt note (soft delete)' })
   remove(@Param('id') id: string) {

@@ -137,6 +137,31 @@ export class PurchaseOrdersService {
     });
   }
 
+  /**
+   * Get POs that are available for GRN creation
+   * Returns POs with status Issued or Partial (not fully received)
+   */
+  async findAvailableForGRN() {
+    return this.prisma.purchase_orders.findMany({
+      where: {
+        status: { in: ['Draft', 'Issued', 'Partial'] },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+  }
+
+  /**
+   * Get completed/closed POs (historical view)
+   */
+  async findCompleted() {
+    return this.prisma.purchase_orders.findMany({
+      where: {
+        status: { in: ['Closed', 'Cancelled'] },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+  }
+
   async findOne(id: string) {
     const po = await this.prisma.purchase_orders.findUnique({
       where: { id },

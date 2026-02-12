@@ -9,6 +9,7 @@ import { PurchaseRequisitionsModule } from './purchase-requisitions/purchase-req
 import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module';
 import { GoodsReceiptNotesModule } from './goods-receipt-notes/goods-receipt-notes.module';
 import { ProcurementOptionsModule } from './procurement-options/procurement-options.module';
+import { ImportsModule } from './imports/imports.module';
 // Finance
 import { InvoicesModule } from './invoices/invoices.module';
 // Inventory
@@ -18,6 +19,8 @@ import { FinishedGoodsModule } from './finished-goods/finished-goods.module';
 // Sales
 import { CustomersModule } from './customers/customers.module';
 import { SalesModule } from './sales/sales.module';
+import { RmqcModule } from './rmqc/rmqc.module';
+import { PaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [
@@ -28,11 +31,14 @@ import { SalesModule } from './sales/sales.module';
     // Procurement
     VendorsModule,
     PurchaseRequisitionsModule,
+    RmqcModule,
     PurchaseOrdersModule,
     GoodsReceiptNotesModule,
     ProcurementOptionsModule,
+    ImportsModule,
     // Finance
     InvoicesModule,
+    // Inventory
     // Inventory
     RawMaterialsModule,
     WarehousesModule,
@@ -40,6 +46,7 @@ import { SalesModule } from './sales/sales.module';
     // Sales
     CustomersModule,
     SalesModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

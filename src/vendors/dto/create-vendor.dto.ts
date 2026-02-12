@@ -1,4 +1,4 @@
-import { IsBoolean, IsDateString, IsEnum, IsNumber, IsOptional, IsString, IsUrl, IsEmail } from 'class-validator';
+import { IsString, IsOptional, IsEmail, IsUrl, IsBoolean, IsDateString, IsNumber, Min, Max, IsArray, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateVendorDto {
@@ -136,5 +136,13 @@ export class CreateVendorDto {
     @ApiPropertyOptional()
     @IsOptional()
     @IsNumber()
+    @Min(0)
+    @Max(100)
     taxWithholdingPercent?: number;
+
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsArray()
+    @IsString({ each: true })
+    vendorTags?: string[]; // Vendor tags
 }

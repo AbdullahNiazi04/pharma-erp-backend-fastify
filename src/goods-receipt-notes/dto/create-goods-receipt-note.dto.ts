@@ -1,4 +1,4 @@
-import { IsString, IsDateString, IsEnum, IsOptional, IsNumber, ValidateNested, IsArray, IsUUID, IsBoolean } from 'class-validator';
+import { IsString, IsDateString, IsIn, IsOptional, IsNumber, ValidateNested, IsArray, IsUUID, IsBoolean, IsNotEmpty } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -48,9 +48,10 @@ export class CreateGoodsReceiptItemDto {
 }
 
 export class CreateGoodsReceiptNoteDto {
-    @ApiProperty()
+    @ApiPropertyOptional()
+    @IsOptional()
     @IsString()
-    grnNumber: string;
+    grnNumber?: string;
 
     @ApiProperty()
     @IsDateString()
@@ -66,10 +67,10 @@ export class CreateGoodsReceiptNoteDto {
     @IsString()
     warehouseLocation?: string;
 
-    @ApiPropertyOptional()
-    @IsOptional()
+    @ApiProperty({ description: 'Name of person who received the goods (required for audit trail)' })
+    @IsNotEmpty({ message: 'Received By is required for regulatory compliance' })
     @IsString()
-    receivedBy?: string;
+    receivedBy: string;
 
     @ApiPropertyOptional()
     @IsOptional()
@@ -78,8 +79,18 @@ export class CreateGoodsReceiptNoteDto {
 
     @ApiPropertyOptional({ enum: ['Normal', 'Urgent', 'ASAP'] })
     @IsOptional()
-    @IsEnum(['Normal', 'Urgent', 'ASAP'])
+    @IsIn(['Normal', 'Urgent', 'ASAP'])
     urgencyStatus?: 'Normal' | 'Urgent' | 'ASAP';
+
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsBoolean()
+    stockPosted?: boolean;
+
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsString()
+    inventoryLocation?: string;
 
     @ApiPropertyOptional()
     @IsOptional()

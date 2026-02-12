@@ -1,4 +1,4 @@
-import { IsString, IsDateString, IsEnum, IsOptional, IsNumber, ValidateNested, IsArray, IsUUID } from 'class-validator';
+import { IsString, IsDateString, IsIn, IsOptional, IsNumber, ValidateNested, IsArray, IsUUID } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -67,7 +67,7 @@ export class CreatePurchaseRequisitionDto {
 
     @ApiPropertyOptional({ enum: ['Normal', 'Urgent'] })
     @IsOptional()
-    @IsEnum(['Normal', 'Urgent'])
+    @IsIn(['Normal', 'Urgent'])
     priority?: 'Normal' | 'Urgent';
 
     @ApiPropertyOptional()

@@ -40,12 +40,28 @@ export class VendorsService {
         payment_terms: createVendorDto.paymentTerms,
         credit_limit: createVendorDto.creditLimit,
         tax_withholding_percent: createVendorDto.taxWithholdingPercent,
+        vendor_tags: createVendorDto.vendorTags
+          ? {
+              create: createVendorDto.vendorTags.map(tag => ({ tag })),
+            }
+          : undefined,
       },
     });
   }
 
-  async findAll() {
+  async findAll(tags?: string) {
+    const where: any = {};
+    if (tags) {
+      const tagList = tags.split(',').map(t => t.trim());
+      where.vendor_tags = {
+        some: {
+          tag: { in: tagList },
+        },
+      };
+    }
     return this.prisma.vendors.findMany({
+      where,
+      include: { vendor_tags: true },
       orderBy: { created_at: 'desc' },
     });
   }
@@ -53,6 +69,7 @@ export class VendorsService {
   async findOne(id: string) {
     const vendor = await this.prisma.vendors.findUnique({
       where: { id },
+      include: { vendor_tags: true },
     });
 
     if (!vendor) {
@@ -99,6 +116,12 @@ export class VendorsService {
         credit_limit: updateVendorDto.creditLimit,
         tax_withholding_percent: updateVendorDto.taxWithholdingPercent,
         updated_at: new Date(),
+        vendor_tags: updateVendorDto.vendorTags
+          ? {
+              deleteMany: {}, // Clear existing tags
+              create: updateVendorDto.vendorTags.map(tag => ({ tag })),
+            }
+          : undefined,
       },
     });
   }

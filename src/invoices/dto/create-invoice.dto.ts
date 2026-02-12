@@ -1,10 +1,11 @@
-import { IsString, IsDateString, IsOptional, IsNumber, IsUUID, IsEnum } from 'class-validator';
+import { IsString, IsDateString, IsOptional, IsNumber, IsUUID, IsIn } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateInvoiceDto {
-    @ApiProperty()
+    @ApiPropertyOptional()
+    @IsOptional()
     @IsString()
-    invoiceNumber: string;
+    invoiceNumber?: string;
 
     @ApiProperty()
     @IsDateString()
@@ -32,8 +33,13 @@ export class CreateInvoiceDto {
     @IsNumber()
     amount: number;
 
-    @ApiPropertyOptional({ enum: ['Pending', 'Approved', 'Paid', 'Cancelled'] })
+    @ApiPropertyOptional({ enum: ['Pending', 'Paid', 'Overdue', 'Cancelled'] })
     @IsOptional()
-    @IsEnum(['Pending', 'Approved', 'Paid', 'Cancelled'])
-    status?: 'Pending' | 'Approved' | 'Paid' | 'Cancelled';
+    @IsIn(['Pending', 'Paid', 'Overdue', 'Cancelled'])
+    status?: 'Pending' | 'Paid' | 'Overdue' | 'Cancelled';
+
+    @ApiPropertyOptional({ default: 'PKR', description: 'Currency code (e.g., PKR, USD)' })
+    @IsOptional()
+    @IsString()
+    currency?: string;
 }

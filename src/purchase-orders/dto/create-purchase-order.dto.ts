@@ -1,4 +1,4 @@
-import { IsString, IsDateString, IsEnum, IsOptional, IsNumber, ValidateNested, IsArray, IsUUID, IsBoolean } from 'class-validator';
+import { IsString, IsDateString, IsIn, IsOptional, IsNumber, ValidateNested, IsArray, IsUUID, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -12,6 +12,11 @@ export class CreatePurchaseOrderItemDto {
     @IsOptional()
     @IsString()
     description?: string;
+
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsString()
+    category?: string;
 
     @ApiProperty()
     @IsNumber()
@@ -73,7 +78,7 @@ export class CreatePurchaseOrderDto {
 
     @ApiPropertyOptional({ enum: ['Inclusive', 'Exclusive'] })
     @IsOptional()
-    @IsEnum(['Inclusive', 'Exclusive'])
+    @IsIn(['Inclusive', 'Exclusive'])
     taxCategory?: 'Inclusive' | 'Exclusive';
 
     @ApiPropertyOptional()
