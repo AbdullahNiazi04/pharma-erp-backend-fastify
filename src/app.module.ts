@@ -20,6 +20,7 @@ import { FinishedGoodsModule } from './finished-goods/finished-goods.module';
 import { CustomersModule } from './customers/customers.module';
 import { SalesModule } from './sales/sales.module';
 import { RmqcModule } from './rmqc/rmqc.module';
+import { QcInspectorsModule } from './qc-inspectors/qc-inspectors.module';
 import { PaymentsModule } from './payments/payments.module';
 
 @Module({
@@ -32,6 +33,7 @@ import { PaymentsModule } from './payments/payments.module';
     VendorsModule,
     PurchaseRequisitionsModule,
     RmqcModule,
+    QcInspectorsModule,
     PurchaseOrdersModule,
     GoodsReceiptNotesModule,
     ProcurementOptionsModule,

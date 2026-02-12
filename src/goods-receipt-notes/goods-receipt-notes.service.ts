@@ -65,6 +65,14 @@ export class GoodsReceiptNotesService {
       }
 
       const items = await tx.goods_receipt_items.findMany({ where: { grn_id: grn.id } });
+
+      // Trigger RMQC generation if QC is required
+      console.log('GRN Update/Create - QC Required:', createDto.qcRequired);
+      if (createDto.qcRequired) {
+        console.log('Triggering _generateRmqcInspections for GRN:', grn.id);
+        await this._generateRmqcInspections(tx, grn.id, items);
+      }
+
       return { ...grn, items };
     });
   }
@@ -127,6 +135,18 @@ export class GoodsReceiptNotesService {
 
       // Return updated GRN with items
       const items = await tx.goods_receipt_items.findMany({ where: { grn_id: id } });
+
+      // Trigger RMQC generation if QC is required
+      if (updateDto.qcRequired) {
+        // First delete any PENDING inspections for this GRN to avoid duplicates on update
+        // We only delete Pending because Passed/Failed ones are historical records we shouldn't touch here
+        await tx.rmqc_inspections.deleteMany({
+          where: { grn_id: id, status: 'Pending' }
+        });
+        
+        await this._generateRmqcInspections(tx, id, items);
+      }
+
       return { ...grn, items };
     });
   }
@@ -159,5 +179,68 @@ export class GoodsReceiptNotesService {
     await this.prisma.goods_receipt_notes.delete({ where: { id } });
 
     return { message: 'GRN moved to trash', id };
+  }
+
+  /**
+   * Helper to generate RMQC inspections and Batch records
+   */
+  private async _generateRmqcInspections(tx: any, grnId: string, items: any[]) {
+    console.log(`Starting _generateRmqcInspections for GRN: ${grnId} with ${items.length} items.`);
+    
+    // 1. Get all raw materials to map item_code -> raw_material_id
+    const rawMaterials = await tx.raw_materials.findMany();
+    const materialMap = new Map<string, any>(rawMaterials.map((m: any) => [m.code, m]));
+    console.log(`Loaded ${rawMaterials.length} raw materials for matching.`);
+
+    for (const item of items) {
+       console.log(`Processing item: ${item.item_code} (${item.item_name})`);
+       const material = materialMap.get(item.item_code);
+       if (!material) {
+           console.warn(`Skipping RMQC for item ${item.item_code}: Not found in Raw Materials.`);
+           continue; 
+       }
+
+       // 2. Create/Find Raw Material Batch (Quarantine)
+       // Check if inventory record exists for this material
+       let inventory = await tx.raw_material_inventory.findFirst({
+         where: { material_id: material.id }
+       });
+
+       if (!inventory) {
+         inventory = await tx.raw_material_inventory.create({
+           data: {
+             material_id: material.id,
+             storage_condition: item.storage_condition || 'Ambient',
+             status: 'Active'
+           }
+         });
+       }
+
+       // Create Batch Record
+       // Note: We create a new batch record for this GRN receipt. 
+       // If batch number exists, we might append or error? For now assuming unique batch per GRN/Item combo or allowing new entry.
+       const batch = await tx.raw_material_batches.create({
+         data: {
+           inventory_id: inventory.id,
+           batch_number: item.batch_number || `BATCH-${Date.now()}`,
+           quantity_available: item.received_qty, // Initially available but in Quarantine
+           expiry_date: item.expiry_date,
+           qc_status: 'Quarantine',
+           warehouse_location: '', // Can be updated later
+         }
+       });
+
+       // 3. Create RMQC Inspection
+       await tx.rmqc_inspections.create({
+         data: {
+           grn_id: grnId,
+           raw_material_id: batch.id, // Linking to the specific batch created
+           inspector_name: 'Pending Assignment',
+           status: 'Pending',
+           description: `Inspection for ${item.item_name} (${item.received_qty} units)`,
+           inspection_date: new Date(),
+         }
+       });
+    }
   }
 }

@@ -58,15 +58,6 @@ export class RmqcService {
     return inspection;
   }
 
-  async update(id: string, updateRmqcDto: UpdateRmqcDto) {
-    return this.prisma.rmqc_inspections.update({
-      where: { id },
-      data: {
-        ...updateRmqcDto,
-        updated_at: new Date(),
-      },
-    });
-  }
 
   async passInspection(id: string) {
     const inspection = await this.prisma.rmqc_inspections.findUnique({ where: { id } });
@@ -126,5 +117,27 @@ export class RmqcService {
     }
 
     return updated;
+  }
+
+  async remove(id: string) {
+    const inspection = await this.prisma.rmqc_inspections.findUnique({ where: { id } });
+    if (!inspection) throw new NotFoundException('Inspection not found');
+    
+    return this.prisma.rmqc_inspections.delete({
+        where: { id }
+    });
+  }
+
+  async update(id: string, updateRmqcDto: UpdateRmqcDto) {
+    const inspection = await this.prisma.rmqc_inspections.findUnique({ where: { id } });
+    if (!inspection) throw new NotFoundException('Inspection not found');
+
+    return this.prisma.rmqc_inspections.update({
+      where: { id },
+      data: {
+        ...updateRmqcDto,
+        updated_at: new Date(),
+      },
+    });
   }
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseUUIDPipe } from '@nestjs/common';
 import { RmqcService } from './rmqc.service';
 import { CreateRmqcDto } from './dto/create-rmqc.dto';
 import { UpdateRmqcDto } from './dto/update-rmqc.dto';
@@ -27,11 +27,6 @@ export class RmqcController {
     return this.rmqcService.findOne(id);
   }
 
-  @Patch(':id')
-  @ApiOperation({ summary: 'Update inspection details' })
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() updateRmqcDto: UpdateRmqcDto) {
-    return this.rmqcService.update(id, updateRmqcDto);
-  }
 
   @Post(':id/pass')
   @ApiOperation({ summary: 'Mark inspection as Passed' })
@@ -43,5 +38,17 @@ export class RmqcController {
   @ApiOperation({ summary: 'Mark inspection as Failed' })
   fail(@Param('id', ParseUUIDPipe) id: string) {
     return this.rmqcService.failInspection(id);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete RMQC inspection' })
+  remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.rmqcService.remove(id);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update RMQC inspection' })
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() updateRmqcDto: UpdateRmqcDto) {
+    return this.rmqcService.update(id, updateRmqcDto);
   }
 }

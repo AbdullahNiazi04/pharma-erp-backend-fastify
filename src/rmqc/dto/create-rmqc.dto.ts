@@ -17,6 +17,11 @@ export class CreateRmqcDto {
   @IsNotEmpty()
   inspector_name: string;
 
+  @ApiPropertyOptional({ description: 'Inspector ID' })
+  @IsUUID()
+  @IsOptional()
+  inspector_id?: string;
+
   @ApiPropertyOptional({ description: 'Description/Observations' })
   @IsString()
   @IsOptional()

@@ -207,23 +207,6 @@ export class PaymentsService {
             });
             this.logger.log(`[Item ${index}] Created batch: ${batch.id}`);
 
-            // Trigger RMQC Inspection if GRN exists
-            if (grn) {
-                this.logger.log(`[Item ${index}] Triggering RMQC inspection for GRN ${grn.id}...`);
-                const description = `Item: ${item.item_name} (${item.item_code || 'N/A'}) | Cat: ${item.category || 'N/A'} | Qty: ${item.quantity} ${item.uom || 'N/A'} | Spec: ${item.specification || 'N/A'}`;
-                const inspection = await this.prisma.rmqc_inspections.create({
-                    data: {
-                        grn_id: grn.id,
-                        raw_material_id: batch.id,
-                        inspector_name: 'System',
-                        description: description,
-                        status: 'Pending'
-                    }
-                });
-                this.logger.log(`[Item ${index}] Created RMQC inspection: ${inspection.id}`);
-            } else {
-                this.logger.warn(`[Item ${index}] Skipping RMQC: No GRN found for Invoice`);
-            }
 
             itemsProcessed++;
         }
