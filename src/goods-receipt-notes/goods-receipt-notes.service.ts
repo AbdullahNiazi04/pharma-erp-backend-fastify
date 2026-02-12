@@ -241,6 +241,7 @@ export class GoodsReceiptNotesService {
            inspection_date: new Date(),
          }
        });
+       console.log(`Created RMQC Inspection (ID pending transaction commit) for Material ${material.name}`);
     }
   }
 }

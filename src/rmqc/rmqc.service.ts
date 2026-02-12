@@ -73,20 +73,8 @@ export class RmqcService {
       },
     });
 
-    // Update GRN QC Status
-    await this.prisma.goods_receipt_notes.update({
-      where: { id: inspection.grn_id },
-      data: { qc_status: 'Passed', qc_remarks: `Passed via RMQC ${id}` },
-    });
-
-    // Update Batch Status if linked
-    if (inspection.raw_material_id) {
-        // Find raw_material_id (which is batch_id in our schema logic)
-        await this.prisma.raw_material_batches.update({
-            where: { id: inspection.raw_material_id },
-            data: { qc_status: 'Approved' } // Check if Approved is in batch_status enum
-        });
-    }
+    // Sync to relations
+    await this._syncStatusToRelations(inspection.grn_id, inspection.raw_material_id, 'Passed');
 
     return updated;
   }
@@ -104,19 +92,30 @@ export class RmqcService {
       },
     });
 
-    await this.prisma.goods_receipt_notes.update({
-      where: { id: inspection.grn_id },
-      data: { qc_status: 'Failed', qc_remarks: `Failed via RMQC ${id}` },
-    });
-
-    if (inspection.raw_material_id) {
-        await this.prisma.raw_material_batches.update({
-            where: { id: inspection.raw_material_id },
-            data: { qc_status: 'Rejected' }
-        });
-    }
+    // Sync to relations
+    await this._syncStatusToRelations(inspection.grn_id, inspection.raw_material_id, 'Failed');
 
     return updated;
+  }
+
+  private async _syncStatusToRelations(grnId: string, batchId: string | null, status: string) {
+    // 1. Update GRN QC Status
+    await this.prisma.goods_receipt_notes.update({
+      where: { id: grnId },
+      data: { 
+        qc_status: status as any, 
+        qc_remarks: `${status} via RMQC updated at ${new Date().toISOString()}` 
+      },
+    });
+
+    // 2. Update Batch Status if linked
+    if (batchId) {
+        const batchStatus = status === 'Passed' ? 'Approved' : 'Rejected';
+        await this.prisma.raw_material_batches.update({
+            where: { id: batchId },
+            data: { qc_status: batchStatus as any }
+        });
+    }
   }
 
   async remove(id: string) {
@@ -132,12 +131,31 @@ export class RmqcService {
     const inspection = await this.prisma.rmqc_inspections.findUnique({ where: { id } });
     if (!inspection) throw new NotFoundException('Inspection not found');
 
-    return this.prisma.rmqc_inspections.update({
+    const data: any = { ...updateRmqcDto, updated_at: new Date() };
+
+    // If inspector_id is updated, sync inspector_name
+    if (updateRmqcDto.inspector_id) {
+        const inspector = await this.prisma.qc_inspectors.findUnique({
+            where: { id: updateRmqcDto.inspector_id }
+        });
+        if (inspector) {
+            data.inspector_name = inspector.name;
+        }
+    }
+
+    const updated = await this.prisma.rmqc_inspections.update({
       where: { id },
-      data: {
-        ...updateRmqcDto,
-        updated_at: new Date(),
-      },
+      data,
     });
+
+    // If status was changed during update, sync to relations
+    if (updateRmqcDto.status && updateRmqcDto.status !== inspection.status) {
+        // If transitioning to Passed/Failed, trigger sync
+        if (['Passed', 'Failed'].includes(updateRmqcDto.status)) {
+            await this._syncStatusToRelations(updated.grn_id, updated.raw_material_id, updateRmqcDto.status);
+        }
+    }
+
+    return updated;
   }
 }

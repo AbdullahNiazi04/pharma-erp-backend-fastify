@@ -19,6 +19,44 @@ export class PurchaseRequisitionsService {
 
     // Use transaction for creating PR and items
     return await this.prisma.$transaction(async (tx) => {
+      // 1. Pre-process items to ensure they all have item_code
+      const processedItems = [];
+      if (createDto.items && createDto.items.length > 0) {
+          for (const item of createDto.items) {
+              let itemCode = item.itemCode;
+              let itemName = item.itemName;
+
+              if (!itemCode) {
+                  // Check if material exists by name
+                  const existingMaterial = await tx.raw_materials.findFirst({
+                      where: { name: itemName }
+                  });
+
+                  if (existingMaterial) {
+                      itemCode = existingMaterial.code;
+                  } else {
+                      // Create new Raw Material
+                      // Generate a code: RM-{Date}-{Random}
+                      itemCode = `RM-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+                      await tx.raw_materials.create({
+                          data: {
+                              name: itemName,
+                              code: itemCode,
+                              type: 'API', // Default type, can be updated later
+                              unit_of_measure: item.uom || 'Unit',
+                              description: 'Auto-created from PR',
+                          }
+                      });
+                  }
+              }
+
+              processedItems.push({
+                ...item,
+                itemCode
+              });
+          }
+      }
+
       // Insert Header
       const newPr = await tx.purchase_requisitions.create({
         data: {
@@ -38,9 +76,9 @@ export class PurchaseRequisitionsService {
       });
 
       // Insert Items
-      if (createDto.items && createDto.items.length > 0) {
+      if (processedItems.length > 0) {
         await tx.purchase_requisition_items.createMany({
-          data: createDto.items.map(item => ({
+          data: processedItems.map(item => ({
             pr_id: newPr.id,
             item_code: item.itemCode,
             item_name: item.itemName,

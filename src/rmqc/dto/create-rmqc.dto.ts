@@ -38,4 +38,9 @@ export class CreateRmqcDto {
   @IsString({ each: true })
   @IsOptional()
   documents?: string[];
+
+  @ApiPropertyOptional({ description: 'Inspection Status', enum: ['Pending', 'Passed', 'Failed', 'Skipped'] })
+  @IsEnum(['Pending', 'Passed', 'Failed', 'Skipped'])
+  @IsOptional()
+  status?: string;
 }
