@@ -117,16 +117,36 @@ export class PaymentsService {
             this.logger.log(`GRN stock_posted: ${grn.stock_posted}, id: ${grn.id}, qc_required: ${grn.qc_required}`);
         }
         
-        if (grn && grn.stock_posted) {
-            this.logger.log(`Stock already posted for linked GRN ${grn.grn_number}. Skipping inventory.`);
-            return;
+        // Status Automation: update the statuses of linked documents
+        await this.prisma.invoices.update({
+            where: { id: invoiceId },
+            data: { status: 'Paid' as any }
+        });
+        this.logger.log(`Invoice ${invoiceId} marked as Paid`);
+
+        if (po) {
+            await this.prisma.purchase_orders.update({
+                where: { id: po.id },
+                data: { status: 'Closed' as any }
+            });
+            this.logger.log(`PO ${po.po_number} marked as Closed`);
+        }
+
+        if (pr) {
+            await this.prisma.purchase_requisitions.update({
+                where: { id: pr.id },
+                data: { status: 'Converted' as any }
+            });
+            this.logger.log(`PR ${pr.req_number} marked as Converted`);
         }
 
         this.logger.log(`Processing inventory update for ${prItems.length} items from PR ${pr?.req_number}...`);
 
         let itemsProcessed = 0;
-        for (const item of prItems) {
-            // [Inventory logic unchanged]
+        for (const [index, item] of prItems.entries()) {
+            this.logger.log(`[Item ${index}] Processing PR Item: ${item.item_name} (Code: ${item.item_code})`);
+            
+            // [Existing Inventory Find Logic]
             let rawMaterial = await this.prisma.raw_materials.findFirst({
                 where: { 
                     OR: [
@@ -137,8 +157,24 @@ export class PaymentsService {
             });
 
             if (!rawMaterial) {
-                this.logger.warn(`Raw Material not found for item: ${item.item_code} - ${item.item_name}`);
-                continue; 
+                this.logger.log(`[Item ${index}] Raw Material not found. Attempting auto-creation...`);
+                try {
+                    rawMaterial = await this.prisma.raw_materials.create({
+                        data: {
+                            name: item.item_name,
+                            code: item.item_code || `RM-${Date.now()}-${index}`,
+                            type: (item.category as any) || 'API',
+                            unit_of_measure: item.uom || 'Unit',
+                            description: `Auto-created from PR ${pr?.req_number}`
+                        }
+                    });
+                    this.logger.log(`[Item ${index}] Auto-created material: ${rawMaterial.id}`);
+                } catch (e) {
+                    this.logger.error(`[Item ${index}] Failed to auto-create material: ${e.message}`);
+                    continue;
+                }
+            } else {
+                this.logger.log(`[Item ${index}] Found existing material: ${rawMaterial.id}`);
             }
 
             // [Inventory Create/Find Logic]
@@ -147,6 +183,7 @@ export class PaymentsService {
             });
 
             if (!inventory) {
+                this.logger.log(`[Item ${index}] Creating inventory for material...`);
                 inventory = await this.prisma.raw_material_inventory.create({
                     data: {
                         material_id: rawMaterial.id,
@@ -157,6 +194,7 @@ export class PaymentsService {
             }
 
             // [Batch Creation Logic]
+            this.logger.log(`[Item ${index}] Creating batch for inventory ${inventory.id}...`);
             const batch = await this.prisma.raw_material_batches.create({
                 data: {
                     inventory_id: inventory.id,
@@ -167,19 +205,24 @@ export class PaymentsService {
                     warehouse_location: grn?.warehouse_location || 'Main Warehouse'
                 }
             });
+            this.logger.log(`[Item ${index}] Created batch: ${batch.id}`);
 
             // Trigger RMQC Inspection if GRN exists
             if (grn) {
-                await this.prisma.rmqc_inspections.create({
+                this.logger.log(`[Item ${index}] Triggering RMQC inspection for GRN ${grn.id}...`);
+                const description = `Item: ${item.item_name} (${item.item_code || 'N/A'}) | Cat: ${item.category || 'N/A'} | Qty: ${item.quantity} ${item.uom || 'N/A'} | Spec: ${item.specification || 'N/A'}`;
+                const inspection = await this.prisma.rmqc_inspections.create({
                     data: {
                         grn_id: grn.id,
                         raw_material_id: batch.id,
                         inspector_name: 'System',
-                        description: `Auto-generated inspection for PR ${pr?.req_number}`,
+                        description: description,
                         status: 'Pending'
                     }
                 });
-                this.logger.log(`Created RMQC inspection for batch ${batch.batch_number}`);
+                this.logger.log(`[Item ${index}] Created RMQC inspection: ${inspection.id}`);
+            } else {
+                this.logger.warn(`[Item ${index}] Skipping RMQC: No GRN found for Invoice`);
             }
 
             itemsProcessed++;
@@ -187,13 +230,16 @@ export class PaymentsService {
 
         this.logger.log(`Processed ${itemsProcessed} items from PR path.`);
 
-        // Mark GRN as posted if it exists
+        // Mark GRN as posted and Approved if it exists
         if (grn) {
           await this.prisma.goods_receipt_notes.update({
               where: { id: grn.id },
-              data: { stock_posted: true }
+              data: { 
+                stock_posted: true,
+                status: 'Approved' as any
+              }
           });
-          this.logger.log(`Stock marked as posted on GRN ${grn.grn_number}`);
+          this.logger.log(`Stock marked as posted and status as Approved on GRN ${grn.grn_number}`);
         }
 
       } catch (error) {
