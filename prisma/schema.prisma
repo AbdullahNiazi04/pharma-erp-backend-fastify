@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -738,5 +739,20 @@ enum import_status {
   At_Port           @map("At Port")
   Customs_Clearance @map("Customs Clearance")
   Cleared
-  Received
+  Received @map("Received")
 }
+
+
+model cloudflareconfig {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  r2AccountId         String?
+  r2AccessKeyId       String?
+  r2SecretAccessKey   String?
+  r2BucketName        String?
+  backupSchedule      String   @default("0 0 * * *")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@map("cloudflare_config")
+}
+

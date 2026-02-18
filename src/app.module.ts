@@ -22,6 +22,7 @@ import { SalesModule } from './sales/sales.module';
 import { RmqcModule } from './rmqc/rmqc.module';
 import { QcInspectorsModule } from './qc-inspectors/qc-inspectors.module';
 import { PaymentsModule } from './payments/payments.module';
+import { SettingsModule } from './settings/settings.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { PaymentsModule } from './payments/payments.module';
     CustomersModule,
     SalesModule,
     PaymentsModule,
+    SettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

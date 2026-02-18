@@ -17,12 +17,19 @@ async function bootstrap() {
     origin: (origin, callback) => {
       const allowedOrigins = [
         'https://pharma-erp-frontend.vercel.app',
+        // Dokpoly frontend domain – set FRONTEND_URL in Dokpoly env vars
+        ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
       ];
       // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
-      
-      // Allow any localhost
-      if (origin.startsWith('http://localhost') || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+
+      // Allow any localhost or known production origins
+      if (
+        origin.startsWith('http://localhost') ||
+        allowedOrigins.includes(origin) ||
+        origin.endsWith('.vercel.app') ||
+        origin.endsWith('.dokpoly.app')
+      ) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'), false);
@@ -62,6 +69,11 @@ async function bootstrap() {
     console.log(`[DEBUG] ${req.method} ${req.url}`);
     if (Object.keys(req.body || {}).length > 0) console.log('Body:', JSON.stringify(req.body, null, 2));
     next();
+  });
+
+  // Health check endpoint – polled by Dokpoly to confirm the service is live
+  app.getHttpAdapter().get('/health', (_req: any, reply: any) => {
+    reply.send({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
   await app.listen(port, '0.0.0.0');
